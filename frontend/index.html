@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VisionAI — Image Recognition Engine</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --bg: #0a0a0f; --surface: #13131a; --surface2: #1c1c28;
+            --border: #2a2a3a; --accent: #06b6d4; --accent2: #22d3ee;
+            --accent-glow: rgba(6,182,212,0.15); --text: #f0f0f5;
+            --text-muted: #8888aa; --success: #34d399; --error: #f87171; --warning: #fbbf24;
+        }
+        body { background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; min-height:100vh; display:flex; flex-direction:column; align-items:center; padding:40px 20px 60px; overflow-x:hidden; }
+        body::before { content:''; position:fixed; top:-200px; left:50%; transform:translateX(-50%); width:800px; height:600px; background:radial-gradient(ellipse,rgba(6,182,212,0.07) 0%,transparent 70%); pointer-events:none; z-index:0; }
+        .container { width:100%; max-width:800px; position:relative; z-index:1; }
+        .header { text-align:center; margin-bottom:48px; }
+        .logo { display:inline-flex; align-items:center; gap:10px; margin-bottom:24px; }
+        .logo-icon { width:44px; height:44px; background:linear-gradient(135deg,var(--accent),var(--accent2)); border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:22px; }
+        .logo-text { font-family:'Space Grotesk',sans-serif; font-size:24px; font-weight:700; letter-spacing:-0.5px; }
+        .logo-text span { color:var(--accent2); }
+        h1 { font-family:'Space Grotesk',sans-serif; font-size:clamp(28px,5vw,48px); font-weight:700; line-height:1.1; letter-spacing:-1.5px; margin-bottom:14px; }
+        h1 em { font-style:normal; background:linear-gradient(135deg,var(--accent),var(--accent2)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+        .subtitle { color:var(--text-muted); font-size:15px; line-height:1.6; max-width:480px; margin:0 auto; }
+        .upload-card { background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:36px; margin-bottom:20px; }
+        .drop-zone { border:2px dashed var(--border); border-radius:16px; padding:48px 24px; text-align:center; cursor:pointer; transition:all 0.3s; position:relative; overflow:hidden; }
+        .drop-zone:hover, .drop-zone.dragover { border-color:var(--accent); background:var(--accent-glow); }
+        .drop-zone input[type="file"] { position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%; }
+        .drop-icon { font-size:48px; margin-bottom:16px; display:block; }
+        .drop-title { font-family:'Space Grotesk',sans-serif; font-size:18px; font-weight:600; color:var(--text); margin-bottom:8px; }
+        .drop-subtitle { font-size:13px; color:var(--text-muted); }
+        .drop-formats { display:flex; justify-content:center; gap:8px; margin-top:16px; }
+        .format-badge { background:var(--surface2); border:1px solid var(--border); border-radius:6px; padding:3px 10px; font-size:11px; color:var(--text-muted); font-weight:600; }
+        .size-note { margin-top:10px; font-size:12px; color:var(--text-muted); }
+        .preview-section { display:none; margin-top:24px; }
+        .preview-section.visible { display:block; }
+        .preview-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+        .preview-label { font-size:12px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; }
+        .change-btn { font-size:12px; color:var(--accent2); cursor:pointer; background:none; border:none; font-weight:600; }
+        .preview-img { width:100%; max-height:320px; object-fit:contain; border-radius:12px; border:1px solid var(--border); background:var(--surface2); }
+        .file-info { display:flex; align-items:center; gap:10px; margin-top:12px; padding:10px 14px; background:var(--surface2); border-radius:8px; font-size:13px; color:var(--text-muted); }
+        .compress-info { display:flex; align-items:center; gap:8px; margin-top:8px; padding:8px 14px; background:rgba(6,182,212,0.08); border:1px solid rgba(6,182,212,0.2); border-radius:8px; font-size:12px; color:var(--accent2); }
+        .analyze-btn { width:100%; padding:16px; background:linear-gradient(135deg,var(--accent),var(--accent2)); border:none; border-radius:12px; color:#0a0a0f; font-family:'Space Grotesk',sans-serif; font-size:16px; font-weight:700; cursor:pointer; transition:all 0.2s; display:flex; align-items:center; justify-content:center; gap:10px; margin-top:20px; letter-spacing:-0.3px; }
+        .analyze-btn:hover:not(:disabled) { transform:translateY(-1px); box-shadow:0 8px 30px rgba(6,182,212,0.35); }
+        .analyze-btn:disabled { opacity:0.5; cursor:not-allowed; }
+        .spinner { width:18px; height:18px; border:2px solid rgba(0,0,0,0.3); border-top-color:#0a0a0f; border-radius:50%; animation:spin 0.8s linear infinite; display:none; }
+        @keyframes spin { to { transform:rotate(360deg); } }
+        .status { padding:14px 18px; border-radius:10px; font-size:14px; font-weight:500; margin-top:16px; display:none; align-items:center; gap:10px; }
+        .status.error { background:rgba(248,113,113,0.1); border:1px solid rgba(248,113,113,0.3); color:var(--error); display:flex; }
+        .status.loading { background:rgba(6,182,212,0.1); border:1px solid rgba(6,182,212,0.3); color:var(--accent2); display:flex; }
+        .results-card { background:var(--surface); border:1px solid var(--accent); border-radius:20px; padding:32px; display:none; box-shadow:0 0 40px rgba(6,182,212,0.08); margin-bottom:20px; }
+        .results-card.visible { display:block; animation:fadeUp 0.4s ease; }
+        @keyframes fadeUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+        .results-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:24px; }
+        .results-title-group { display:flex; align-items:center; gap:12px; }
+        .success-dot { width:8px; height:8px; background:var(--success); border-radius:50%; box-shadow:0 0 10px var(--success); animation:pulse 2s ease-in-out infinite; }
+        @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+        .results-title { font-family:'Space Grotesk',sans-serif; font-size:18px; font-weight:600; }
+        .results-meta { font-size:12px; color:var(--text-muted); }
+        .stats-row { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:24px; }
+        .stat-box { background:var(--surface2); border:1px solid var(--border); border-radius:12px; padding:16px; text-align:center; }
+        .stat-number { font-family:'Space Grotesk',sans-serif; font-size:28px; font-weight:700; color:var(--accent2); margin-bottom:4px; }
+        .stat-label { font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; }
+        .labels-title { font-size:12px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:14px; }
+        .labels-grid { display:flex; flex-direction:column; gap:10px; }
+        .label-item { display:flex; align-items:center; gap:14px; }
+        .label-name { font-size:14px; font-weight:600; color:var(--text); min-width:140px; }
+        .label-bar-track { flex:1; height:6px; background:var(--surface2); border-radius:3px; overflow:hidden; }
+        .label-bar-fill { height:100%; border-radius:3px; background:linear-gradient(90deg,var(--accent),var(--accent2)); transition:width 0.8s ease; }
+        .label-confidence { font-size:13px; font-weight:600; color:var(--accent2); min-width:50px; text-align:right; }
+        .faces-section { margin-top:24px; padding-top:24px; border-top:1px solid var(--border); display:none; }
+        .faces-section.visible { display:block; }
+        .face-badge { display:inline-flex; align-items:center; gap:8px; background:rgba(251,191,36,0.1); border:1px solid rgba(251,191,36,0.3); border-radius:10px; padding:10px 16px; font-size:14px; color:var(--warning); font-weight:600; }
+        .history-card { background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:28px; margin-bottom:20px; display:none; }
+        .history-card.visible { display:block; }
+        .history-title { font-family:'Space Grotesk',sans-serif; font-size:16px; font-weight:600; margin-bottom:16px; }
+        .history-list { display:flex; flex-direction:column; gap:10px; }
+        .history-item { background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:12px 16px; display:flex; align-items:center; justify-content:space-between; }
+        .history-file { font-size:13px; font-weight:600; color:var(--text); }
+        .history-labels { font-size:12px; color:var(--text-muted); margin-top:3px; }
+        .history-count { font-size:12px; color:var(--accent2); font-weight:600; }
+        .footer { text-align:center; margin-top:32px; color:var(--text-muted); font-size:13px; }
+        .footer span { color:var(--accent2); }
+        .aws-badges { display:flex; justify-content:center; gap:8px; margin-top:12px; flex-wrap:wrap; }
+        .badge { background:var(--surface2); border:1px solid var(--border); border-radius:6px; padding:4px 10px; font-size:11px; color:var(--text-muted); font-weight:500; }
+        @media (max-width:600px) { .upload-card { padding:24px 16px; } h1 { font-size:26px; } .label-name { min-width:100px; font-size:13px; } }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <div class="logo">
+            <div class="logo-icon">👁️</div>
+            <div class="logo-text">Vision<span>AI</span></div>
+        </div>
+        <h1>AI-powered <em>image recognition</em></h1>
+        <p class="subtitle">Upload any image and our serverless AI engine powered by Amazon Rekognition will detect objects, scenes, faces and more in seconds.</p>
+    </div>
+
+    <div class="upload-card">
+        <div class="drop-zone" id="dropZone">
+            <input type="file" id="fileInput" accept="image/jpeg,image/jpg,image/png" onchange="handleFileSelect(event)">
+            <span class="drop-icon">🖼️</span>
+            <div class="drop-title">Drop your image here</div>
+            <div class="drop-subtitle">or click to browse files</div>
+            <div class="drop-formats">
+                <span class="format-badge">JPG</span>
+                <span class="format-badge">JPEG</span>
+                <span class="format-badge">PNG</span>
+            </div>
+            <div class="size-note">⚡ Images are automatically compressed before sending</div>
+        </div>
+
+        <div class="preview-section" id="previewSection">
+            <div class="preview-header">
+                <div class="preview-label">Selected Image</div>
+                <button class="change-btn" onclick="resetUpload()">Change image</button>
+            </div>
+            <img class="preview-img" id="previewImg" src="" alt="Preview">
+            <div class="file-info">
+                <span>📄</span>
+                <span id="fileInfoText">No file selected</span>
+            </div>
+            <div class="compress-info" id="compressInfo" style="display:none">
+                ⚡ <span id="compressText"></span>
+            </div>
+        </div>
+
+        <button class="analyze-btn" id="analyzeBtn" onclick="analyzeImage()" disabled>
+            <div class="spinner" id="spinner"></div>
+            <span id="btnText">👁️ Analyze Image</span>
+        </button>
+        <div class="status" id="statusMsg"></div>
+    </div>
+
+    <div class="results-card" id="resultsCard">
+        <div class="results-header">
+            <div class="results-title-group">
+                <div class="success-dot"></div>
+                <div class="results-title">Analysis Complete</div>
+            </div>
+            <div class="results-meta" id="resultsMeta"></div>
+        </div>
+        <div class="stats-row">
+            <div class="stat-box">
+                <div class="stat-number" id="labelCount">0</div>
+                <div class="stat-label">Labels Found</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number" id="faceCount">0</div>
+                <div class="stat-label">Faces Found</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number" id="topConfidence">0%</div>
+                <div class="stat-label">Top Confidence</div>
+            </div>
+        </div>
+        <div class="labels-title">Detected Labels</div>
+        <div class="labels-grid" id="labelsGrid"></div>
+        <div class="faces-section" id="facesSection">
+            <div class="face-badge" id="faceBadge"></div>
+        </div>
+    </div>
+
+    <div class="history-card" id="historyCard">
+        <div class="history-title">📋 Analysis History</div>
+        <div class="history-list" id="historyList"></div>
+    </div>
+
+    <div class="footer">
+        Built with <span>♥</span> by Benjamin Asare Danquah · AWS Certified Cloud Practitioner
+        <div class="aws-badges">
+            <span class="badge">Amazon S3</span>
+            <span class="badge">AWS Lambda</span>
+            <span class="badge">Amazon Rekognition</span>
+            <span class="badge">API Gateway</span>
+            <span class="badge">Amazon DynamoDB</span>
+        </div>
+    </div>
+</div>
+
+<script>
+    const API_URL = 'https://tullb29aw9.execute-api.us-east-1.amazonaws.com/prod/analyze';
+    const MAX_WIDTH = 800;
+    const MAX_HEIGHT = 800;
+    const QUALITY = 0.7;
+
+    let selectedFile = null;
+    let compressedBase64 = null;
+    let analysisHistory = [];
+
+    // Drag and drop
+    const dropZone = document.getElementById('dropZone');
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+    dropZone.addEventListener('dragleave', () => { dropZone.classList.remove('dragover'); });
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault(); dropZone.classList.remove('dragover');
+        const file = e.dataTransfer.files[0];
+        if (file && file.type.startsWith('image/')) processFile(file);
+    });
+
+    function handleFileSelect(event) {
+        const file = event.target.files[0];
+        if (file) processFile(file);
+    }
+
+    function compressImage(file) {
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+
+                    // Resize if too large
+                    if (width > MAX_WIDTH || height > MAX_HEIGHT) {
+                        const ratio = Math.min(MAX_WIDTH / width, MAX_HEIGHT / height);
+                        width = Math.floor(width * ratio);
+                        height = Math.floor(height * ratio);
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    const compressed = canvas.toDataURL('image/jpeg', QUALITY);
+                    resolve({
+                        base64: compressed,
+                        width,
+                        height,
+                        sizeKB: Math.round((compressed.length * 0.75) / 1024)
+                    });
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    async function processFile(file) {
+        selectedFile = file;
+
+        // Show preview immediately
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            document.getElementById('previewImg').src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+
+        document.getElementById('previewSection').classList.add('visible');
+        document.getElementById('dropZone').style.display = 'none';
+        document.getElementById('fileInfoText').textContent =
+            file.name + ' — Original: ' + (file.size / 1024).toFixed(0) + ' KB';
+
+        // Compress
+        showStatus('Compressing image...', 'loading');
+        const result = await compressImage(file);
+        compressedBase64 = result.base64;
+
+        // Show compression info
+        const compressInfo = document.getElementById('compressInfo');
+        const compressText = document.getElementById('compressText');
+        compressText.textContent = 'Compressed to ' + result.sizeKB + ' KB (' + result.width + 'x' + result.height + ') — ready to analyze';
+        compressInfo.style.display = 'flex';
+
+        hideStatus();
+        document.getElementById('analyzeBtn').disabled = false;
+    }
+
+    function resetUpload() {
+        selectedFile = null;
+        compressedBase64 = null;
+        document.getElementById('previewSection').classList.remove('visible');
+        document.getElementById('dropZone').style.display = 'block';
+        document.getElementById('fileInput').value = '';
+        document.getElementById('analyzeBtn').disabled = true;
+        document.getElementById('compressInfo').style.display = 'none';
+        hideStatus();
+    }
+
+    function showStatus(message, type) {
+        const el = document.getElementById('statusMsg');
+        el.textContent = message;
+        el.className = 'status ' + type;
+    }
+
+    function hideStatus() {
+        document.getElementById('statusMsg').className = 'status';
+    }
+
+    function setLoading(loading) {
+        const btn = document.getElementById('analyzeBtn');
+        const spinner = document.getElementById('spinner');
+        const btnText = document.getElementById('btnText');
+        if (loading) {
+            btn.disabled = true;
+            spinner.style.display = 'block';
+            btnText.textContent = 'Analyzing with Rekognition...';
+            showStatus('Sending to Amazon Rekognition AI... please wait', 'loading');
+        } else {
+            btn.disabled = false;
+            spinner.style.display = 'none';
+            btnText.textContent = 'Analyze Another Image';
+            hideStatus();
+        }
+    }
+
+    async function analyzeImage() {
+        if (!compressedBase64) return;
+        setLoading(true);
+
+        try {
+            console.log('Sending request to:', API_URL);
+            console.log('Image size (chars):', compressedBase64.length);
+
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    image: compressedBase64,
+                    fileName: selectedFile ? selectedFile.name : 'image.jpg'
+                })
+            });
+
+            console.log('Response status:', response.status);
+            const rawText = await response.text();
+            console.log('Raw response:', rawText);
+
+            let outer;
+            try { outer = JSON.parse(rawText); }
+            catch(e) { throw new Error('Invalid response: ' + rawText.substring(0, 100)); }
+
+            let data;
+            if (outer.body && typeof outer.body === 'string') {
+                try { data = JSON.parse(outer.body); }
+                catch(e) { data = outer; }
+            } else if (outer.body && typeof outer.body === 'object') {
+                data = outer.body;
+            } else if (outer.labels) {
+                data = outer;
+            } else {
+                data = outer;
+            }
+
+            console.log('Parsed data:', data);
+
+            if (data && data.labels) {
+                displayResults(data);
+                addToHistory(data);
+                setLoading(false);
+            } else if (data && data.error) {
+                throw new Error(data.error);
+            } else {
+                throw new Error('Unexpected response. Check console for details.');
+            }
+
+        } catch (error) {
+            setLoading(false);
+            showStatus('Error: ' + error.message, 'error');
+            console.error('Full error:', error);
+        }
+    }
+
+    function displayResults(data) {
+        const labels = data.labels || [];
+        const faceCount = data.faceCount || 0;
+
+        document.getElementById('labelCount').textContent = labels.length;
+        document.getElementById('faceCount').textContent = faceCount;
+        document.getElementById('topConfidence').textContent =
+            labels.length > 0 ? labels[0].confidence.toFixed(0) + '%' : '0%';
+        document.getElementById('resultsMeta').textContent = 'Analyzed ' + new Date().toLocaleTimeString();
+
+        const grid = document.getElementById('labelsGrid');
+        grid.innerHTML = '';
+        labels.forEach((label) => {
+            const item = document.createElement('div');
+            item.className = 'label-item';
+            item.innerHTML =
+                '<div class="label-name">' + label.name + '</div>' +
+                '<div class="label-bar-track"><div class="label-bar-fill" style="width:0%" data-width="' + label.confidence + '%"></div></div>' +
+                '<div class="label-confidence">' + label.confidence.toFixed(1) + '%</div>';
+            grid.appendChild(item);
+        });
+
+        setTimeout(() => {
+            document.querySelectorAll('.label-bar-fill').forEach(bar => {
+                bar.style.width = bar.dataset.width;
+            });
+        }, 100);
+
+        const facesSection = document.getElementById('facesSection');
+        const faceBadge = document.getElementById('faceBadge');
+        if (faceCount > 0) {
+            faceBadge.textContent = '👤 ' + faceCount + (faceCount === 1 ? ' face detected' : ' faces detected') + ' in this image';
+            facesSection.classList.add('visible');
+        } else {
+            facesSection.classList.remove('visible');
+        }
+
+        const resultsCard = document.getElementById('resultsCard');
+        resultsCard.classList.add('visible');
+        resultsCard.scrollIntoView({ behavior:'smooth', block:'nearest' });
+    }
+
+    function addToHistory(data) {
+        analysisHistory.unshift({
+            fileName: selectedFile ? selectedFile.name : 'image.jpg',
+            labels: data.labels || [],
+            faceCount: data.faceCount || 0
+        });
+        if (analysisHistory.length > 5) analysisHistory.pop();
+
+        const historyCard = document.getElementById('historyCard');
+        const historyList = document.getElementById('historyList');
+        historyCard.classList.add('visible');
+        historyList.innerHTML = '';
+
+        analysisHistory.forEach(item => {
+            const topLabels = item.labels.slice(0, 3).map(l => l.name).join(', ');
+            const div = document.createElement('div');
+            div.className = 'history-item';
+            div.innerHTML =
+                '<div><div class="history-file">🖼️ ' + item.fileName + '</div>' +
+                '<div class="history-labels">' + (topLabels || 'No labels') + '</div></div>' +
+                '<div class="history-count">' + item.labels.length + ' labels</div>';
+            historyList.appendChild(div);
+        });
+    }
+</script>
+</body>
+</html>
