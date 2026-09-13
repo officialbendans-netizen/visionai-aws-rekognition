@@ -165,7 +165,7 @@ Upload: index.html
 ## 👨‍💻 Author
 
 **Benjamin Asare Danquah**
-- AWS Certified Cloud Practitioner (Score: 890/1000)
+- AWS Certified Cloud Practitioner
 - GitHub: [@officialbendans-netizen](https://github.com/officialbendans-netizen)
 
 ---
